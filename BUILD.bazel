@@ -4,11 +4,18 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+cc_library(
+    name = "shi",
+    hdrs = glob(["include/shi/**/*.hpp"]),
+    includes = ["include"],
+)
+
 cc_test(
     name = "gtests",
     size = "small",
     srcs = glob(["tests/**/*.cpp"]),
     deps = [
+        ":shi",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

@@ -18,6 +18,7 @@ public:
     // mutate
     T&   back();
     T&   front();
+    void pop_front();
     void push_back(T const &);
 
     // iterate
@@ -73,6 +74,12 @@ template <typename T>
 T const & circular_queue<T>::front() const
 {
     return m_read_segment->m_data[m_read_segment->m_head & m_read_mask];
+}
+
+template <typename T>
+void circular_queue<T>::pop_front()
+{
+    ++m_read_segment->m_head; // TODO destruct T, kill segment if empty
 }
 
 template <typename T>
