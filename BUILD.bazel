@@ -1,0 +1,15 @@
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+cc_test(
+    name = "gtests",
+    size = "small",
+    srcs = glob(["tests/**/*.cpp"]),
+    deps = [
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
