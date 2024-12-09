@@ -1,5 +1,7 @@
 #pragma once
 
+#include <shi/common.hpp>
+
 namespace shi
 {
 template <typename T>
@@ -26,16 +28,22 @@ public:
 private:
     struct segment
     {
-        uint32_t m_head;
-        uint32_t m_tail;
-        T m_data[];
+        uint32_t front_idx;
+        uint32_t back_idx;
+        segment* next;
+        T data[];
     };
 
-    uint32_t m_size;
-    uint32_t m_read_mask;
-    uint32_t m_write_mask;
-    segment* m_read_segment;
-    segment* m_write_segment;
+    static bool _is_segment_empty(segment const&);
+    void _pop_front_segment();  // TODO mark noinline
+    segment& _push_back_new_segment();  // TODO mark noinline
+
+private:
+    uint32_t num_elements;
+    uint32_t front_mask;
+    uint32_t back_mask;
+    segment* front_segment;
+    segment* back_segment;
 };
 
 
@@ -44,11 +52,11 @@ private:
 //
 template <typename T>
 circular_queue<T>::circular_queue()
-    : m_size{}
-    , m_read_mask{}
-    , m_write_mask{}
-    , m_read_segment{}
-    , m_write_segment{}
+    : num_elements{}
+    , front_mask{}
+    , back_mask{}
+    , front_segment{}
+    , back_segment{}
 {
 }
 
@@ -56,35 +64,89 @@ template <typename T>
 circular_queue<T>::~circular_queue()
 {
     while (!empty()) { pop_front(); }
+    delete this->back_segment;
 }
 
 template <typename T>
 T const & circular_queue<T>::back() const
 {
-    return m_write_segment->m_data[(m_write_segment->m_tail - 1) & m_write_mask];
+    segment& b = *this->back_segment;
+    return b.data[(b.back_idx - 1) & this->back_mask];
 }
 
 template <typename T>
 bool circular_queue<T>::empty() const
 {
-    return m_size == 0;
+    return this->num_elements == 0;
 }
 
 template <typename T>
 T const & circular_queue<T>::front() const
 {
-    return m_read_segment->m_data[m_read_segment->m_head & m_read_mask];
+    segment& f = *this->front_segment;
+    return f.data[f.front_idx & this->front_mask];
 }
 
 template <typename T>
 void circular_queue<T>::pop_front()
 {
-    ++m_read_segment->m_head; // TODO destruct T, kill segment if empty
+    segment& f = *this->front_segment;
+    f.data[f.front_idx & this->front_mask].~T();
+    ++f.front_idx;
+    --this->num_elements;
+    if (shi_unlikely((&f != this->back_segment) & _is_segment_empty(f)))
+    {
+        _pop_front_segment();
+    }
+}
+
+template <typename T>
+void circular_queue<T>::push_back(T const & t)
+{
+    segment& b = shi_unlikely(_is_segment_full(*this->back_segment)) ? _push_back_new_segment() : *this->back_segment;
+    new(&b.data[b.back_idx & this->back_mask]) T(t);
+    ++b.back_idx;
+    ++this->num_elements;
 }
 
 template <typename T>
 uint32_t circular_queue<T>::size() const
 {
-    return m_size;
+    return this->num_elements;
+}
+
+template <typename T>
+bool circular_queue<T>::_is_segment_empty(circular_queue<T>::segment const & s)
+{
+    return s.front_idx == s.back_idx;
+}
+
+template <typename T>
+void circular_queue<T>::_pop_front_segment()
+{
+    segment* const tmp  = this->front_segment;
+    this->front_segment = this->front_segment->next;
+    this->front_mask    = 2 * (this->front_mask) - 1;
+    delete tmp;
+}
+
+template <typename T>
+typename circular_queue<T>::segment& circular_queue<T>::_push_back_new_segment()
+{
+    uint32_t const new_capacity = shi_likely(this->back_segment) ? 2 * (this->back_mask + 1) : 16U;
+    auto space         = new char[sizeof(segment) + new_capacity * sizeof(T)];  // TODO need to align
+    auto new_segment   = reinterpret_cast<segment*>(space);
+    new_segment->front_idx = 0;
+    new_segment->back_idx  = 0;
+    new_segment->next      = nullptr;
+    if (this->back_segment)
+    {
+        this->back_segment->next = new_segment;
+        this->back_segment       = new_segment;
+    }
+    else
+    {
+        this->front_segment = this->back_segment = new_segment;
+    }
 }
 }

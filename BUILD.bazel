@@ -8,12 +8,15 @@ cc_library(
     name = "shi",
     hdrs = glob(["include/shi/**/*.hpp"]),
     includes = ["include"],
+    copts = ['-std=gnu++20'],
 )
 
 cc_test(
-    name = "gtests",
+    name = "tests",
     size = "small",
-    srcs = glob(["tests/**/*.cpp"]),
+    srcs = glob(["tests/**/*.hpp", "tests/**/*.cpp"]),
+    includes = ["include", "tests"],
+    copts = ['-std=gnu++20'],
     deps = [
         ":shi",
         "@googletest//:gtest",
